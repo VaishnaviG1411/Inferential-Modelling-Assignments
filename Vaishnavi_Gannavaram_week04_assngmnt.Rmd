@@ -1,0 +1,244 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+INFERENTIAL MODELLING – HDS 5320-02 
+ASSIGNMENT – 04 (WEEK-04)
+Vaishnavi Gannavaram
+Instructor : Dr. Srikanth Mudigonda
+---
+
+```{r}
+#installing packages
+install.packages("glmnet")
+install.packages("faraway")
+install.packages("mice")
+install.packages("VIM")
+install.packages("lattice")
+install.packages("ggplot2")
+install.packages("dplyr")
+```
+
+
+
+```{r}
+#Loading the dataset from package
+require("faraway")
+data("pima")
+```
+
+```{r}
+#checking the summary
+summary(pima)
+```
+
+```{r}
+help(pima)
+```
+
+```{r}
+View(pima)
+```
+
+```{r}
+# Q1. building full model using all predictors and outcome variable test
+lmod.larger <- glm(pima$test ~ pregnant  +glucose + diastolic+ triceps+ insulin + bmi+ diabetes+ age , family = binomial, data = pima)
+summary(lmod.larger)
+```
+#Based on each predictor's coefficients p values, predictors "pregnant","glucose","diastolic","bmi","diabetes" have significant relationship with the outcome variable.
+
+
+
+```{r}
+#Q2.  Change in log odds
+pima$y <- ifelse(pima$test == "0", 0, 1)
+(beta <- coef(lmod.larger))
+plot(jitter(y, 0.1) ~ jitter(pregnant), pima, xlab="pregnancy occurancies", ylab="Test",pch=".")
+curve(ilogit(beta[1] + beta[2]*3 + beta[3]*x + beta[4]*x + beta[5]*x + beta[6]*x + beta[7]*x + beta[8]*x + beta[9]*x), add=TRUE)
+curve(ilogit(beta[1] + beta[2]*5 + beta[3]*x+ beta[4]*x + beta[5]*x + beta[6]*x + beta[7]*x + beta[8]*x) + beta[9]*x, add=TRUE,lty=2)
+```
+# Keeping all other variables constant, when preganant variable is increased from 3 to 5,(with log-odds of test == 1)
+#In the figure above, the bold curve corresponds to pregnant = 3 and dashed curve corresponds to pregnant = 5.
+
+```{r}
+exp(beta[2] * 3)
+```
+#So when pregnant = 3,this results in an increase of ≈ 48% in the odds of having "test" == 1.  
+
+```{r}
+exp(beta[2]*5)
+```
+#When pregnant is increased from 3 to pregnant = 5,this results in an increase of 85% in the odds of having "test" == 1.
+
+#Therefore, there is 37% change in the odds of having test == 1 when the pregnant is increased from 3 to 5.
+
+```{r}
+#Q3 Reduced model
+lmod.smaller <- glm(pima$test ~ pregnant + glucose + diastolic + diabetes + age, family = binomial, data = pima)
+summary(lmod.smaller)
+```
+# Based on each predictor's coefficients p values, predictors "pregnant","glucose","diabetes" have significant relationship with the outcome variable.
+
+
+###### comparision between "lmod.larger" and "lmod.smaller models" : 
+The common significant predictors from both models are pregnant, glucose and diabetes. 
+AIC of lmod.larger is 741.45 and AIC of lmod.smaller is 
+781.24.
+
+Pima test.larger = -8.40 + 0.12*pregnant + 0.03*glucose - 0.01*diastolic + 0.09*bmi +0.94*diabetes
+
+pimatest.smaller = -6.03 + 0.11*pregnant + 0.03*glucose + 0.99*diabetes. 
+
+Now, if we observe the aggregate analysis we can say that lmod.larger is good fit model because the p value is less than 0.05 and the residuals sum of squares has reduced from 769.24 to 723.45. 
+
+
+
+
+```{r}
+#Q4. Comparing models
+anova(lmod.smaller,lmod.larger, test="Chi")
+```
+From the anova test, we can clearly see that model 2 i.e, lmod.larger is the best among the two models "lmod.smaller" and "lmod.larger".
+
+
+#############predictive accuracy##################
+```{r}
+library(tidyverse)
+pima <- na.omit(pima)
+pima <- mutate(pima, predprob=predict(lmod.larger,type="response"))
+```
+
+```{r}
+pima <- mutate(pima, predout = ifelse (predprob < 0.5, "0", "1"))
+tab.results <- xtabs( ~ test + predout, pima)
+
+class.rate <- (tab.results[1,1]+tab.results[2,2])/sum(tab.results)
+print(paste("The classification accuracy is: ",
+            round(class.rate * 100, 4), "%", sep=""))
+```
+# With accuracy of 78.2552% we can say that "lmod.larger" model is incorrect roughly 22% of the time.
+
+
+```{r}
+library(tidyverse)
+pima <- na.omit(pima)
+pima <- mutate(pima, predprob=predict(lmod.smaller,type="response"))
+```
+
+
+```{r}
+pima <- mutate(pima, predout = ifelse (predprob < 0.5, "0", "1"))
+tab.results <- xtabs( ~ test + predout, pima)
+
+class.rate <- (tab.results[1,1]+tab.results[2,2])/sum(tab.results)
+print(paste("The classification accuracy is: ",
+            round(class.rate * 100, 4), "%", sep=""))
+```
+# With accuracy of 76.1719% we can say that "lmod.smaller" model is incorrect roughly 24% of the time.
+
+Therefore, we can say that full model i.e, "lmod.larger" has a better predictive accuracy when compared to reduced model i.e, "lmod.smaller".
+
+
+#In addition, it would be useful to provide decision-makers with two other relevant, metrics: sensitivity and specificity
+ #####sensitivity and specificity########
+ 
+#The following code shows how, by changing the threshold we use in our mapping, we can affect the sensitivity and specificity of our model.
+```{r}
+thresh <- seq(0.01,0.5,0.01)
+Sensitivity <- numeric(length(thresh))
+Specificity <- numeric(length(thresh))
+
+for(j in seq(along=thresh)){
+    pp <- ifelse(pimaPA$predprob < thresh[j],"no","yes")
+    xx <- xtabs( ~ test + pp, pimaPA)
+    Specificity[j] <- xx[1,1]/(xx[1,1]+xx[1,2])
+    Sensitivity[j] <- xx[2,2]/(xx[2,1]+xx[2,2])
+}
+```
+
+
+
+```{r}
+##plotting these values to observe the pattern of relationships.
+matplot(thresh,
+        cbind(Sensitivity, Specificity),
+        type="l",
+        xlab="Threshold",
+        ylab="Proportion",lty=1:2)
+```
+#From the graph, we can say that, as the value of the threshold changes, the values of specificity and sensitivity also change. The value of threshold must be chosen so as to minimize false negatives while also maximizing true positives.
+
+ ##### ROC CURVE #####
+```{r}
+# plotting true positive rates (sensitivity) against false positive rates (1 - specificity). 
+plot(1-Specificity,Sensitivity,type="l")
+abline(0,1,lty=2)
+```
+#We know that, A good model is one whose ROC curve rises rapidly towards the top-left corner of the graph and retains its position close to the 1.0. 
+Hence, this graph with ROC Curve implies a good model.
+ 
+ 
+ 
+##########################DIAGNOSTICS#############################
+ 
+```{r}
+library(dplyr)
+library(ggplot2)
+## adding residuals and linear-predicted values to the original dataframe
+pima <- mutate(pima, residuals=residuals(lmod.larger), linpred=predict(lmod.larger))
+## creating bins based on quantiles, so that we can plot the means, within each bin, of
+## linear residuals vs linear predictors
+gdf <- group_by(pima, cut(linpred, breaks=unique(quantile(linpred, (1:100)/101))))
+```
+
+
+```{r}
+#Using the data in the bins, computing means of the residuals and linear predictors in each bin, and holding these in a new dataframe.
+diagdf <- summarise(gdf, residuals=mean(residuals), linpred=mean(linpred))
+```
+
+```{r}
+#plotting the fitted values (predicted values) v/s the residuals.
+
+plot(residuals ~ linpred, diagdf, xlab="linear predictor")
+```
+#As we can see that the plot is random, suggests that it is a good one. 
+
+```{r}
+group_by(pima,pregnant) %>%
+  summarise(residuals = mean(residuals)) %>%
+  ggplot(aes(x=pregnant,y=residuals)) + geom_point()
+```
+# In the graph, we note that the majority of the plotted points are not extraordinary, with the exception of one point, which appears to correspond to pregnant = 14 ".
+
+
+```{r}
+filter(pima, pregnant==14) %>% select(pregnant, glucose, bmi,diabetes, diastolic, residuals)
+```
+#Of the two observations in the bin, one corresponds to an individual who has glucose level of 100 and other individual with glucose level 175 with BMI'S 36.6 and 33.6. 
+
+```{r}
+#creating a plot of residuals falling into bins of glucose levels 
+group_by(pima, glucose) %>%
+    summarise(residuals=mean(residuals), count=n()) %>%
+    ggplot(aes(x=glucose, y=residuals, size=sqrt(count))) +
+    geom_point()
+```
+
+```{r}
+qqnorm(residuals(lmod.larger))
+```
+# No noticeble abnormailities in the plot.
+
+
+```{r}
+halfnorm(hatvalues(lmod.larger))
+```
+A half-normal plot, where one plots absolute values of errors against sorted data, would indicate to us whether there are any observations whose absolute residual values are outliners. It appears there there are two such observations, as seen in the graph below.
+
+
+```{r}
+filter(pima, hatvalues(lmod.larger) > 0.06) %>% select(pregnant, glucose, bmi,diabetes, diastolic, residuals)
+```
+
+Given that we have only three outliers out of all observations, we can assume that these three outliers' influence is relatively miniscule and thus is not a cause for concern.

@@ -1,0 +1,258 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+---
+INFERENTIAL MODELLING – HDS 5320-02 
+ASSIGNMENT – 05 (WEEK-05)
+Vaishnavi Gannavaram
+Instructor : Dr. Srikanth Mudigonda
+---
+
+
+```{r}
+#loading packages
+library("glmnet")
+library("faraway")
+library("mice")
+library("VIM")
+library("lattice")
+library("ggplot2")
+library("dplyr")
+library("tidyverse")
+```
+
+
+```{r}
+#Loading the dataset from package
+require("faraway")
+data("dvisits")
+```
+
+```{r}
+#checking the summary
+summary(dvisits)
+```
+
+```{r}
+help(dvisits)
+```
+
+```{r}
+View(dvisits)
+```
+
+```{r}
+#removing NA's
+dvisits <- na.omit(dvisits)
+```
+
+
+#Q1
+```{r}
+#converting binary variables into as factors
+
+dvisits$sex <- as.factor(dvisits$sex)
+```
+
+```{r}
+dvisits$levyplus <- as.factor(dvisits$levyplus)
+```
+
+```{r}
+dvisits$freepoor <- as.factor(dvisits$freepoor)
+```
+
+```{r}
+dvisits$freerepa <- as.factor(dvisits$freerepa)
+```
+
+```{r}
+dvisits$chcond1 <- as.factor(dvisits$chcond1)
+```
+
+```{r}
+dvisits$chcond2 <- as.factor(dvisits$chcond2)
+```
+
+```{r}
+#removed agesq to prevent multicollinearity
+dvisitsedit <- select(dvisits, -agesq)
+```
+
+```{r}
+summary(dvisitsedit)
+```
+
+#GRAPHS
+
+```{r}
+plot(dvisitsedit$doctorco, dvisitsedit$illness, pch = 19, col = "grey")
+
+# Linear fit
+abline(lm(dvisitsedit$doctorco ~ dvisitsedit$illness), col = "seagreen", lwd = 3)
+
+```
+
+The scatter plot with linear fit graph of outcome variable "doctorco" and predictor variable "illness" shows a positive and significant relationship between Number of consultations with a doctor or specialist in the past 2 weeks and Number of illnesses in past 2 weeks.
+
+```{r}
+plot(dvisitsedit$doctorco, dvisitsedit$age, pch = 19, col = "pink")
+
+# Linear fit
+abline(lm(dvisitsedit$doctorco ~ dvisitsedit$age), col = "blue", lwd = 3)
+
+```
+The scatter plot with linear fit graph of outcome variable "doctorco" and predictor variable "age" shows a positive and significant relationship between Number of consultations with a doctor or specialist in the past 2 weeks and age.
+
+
+#Q2
+Two predictors "chchond1" and "chcond2" are combined into a single predictor "chroniccond" with four levels corresponding to the combinations of both: 00, 01, 10, and 11.
+
+```{r}
+dvisitsedit$chroniccond <- as.factor(ifelse((dvisitsedit$chcond1 == 0 &
+                                         dvisitsedit$chcond2 == 0),
+                                        0,
+                                 ifelse((dvisitsedit$chcond1 == 0 &
+                                         dvisitsedit$chcond2 == 1),
+                                        1,
+                                 ifelse((dvisitsedit$chcond1 == 1 &
+                                         dvisitsedit$chcond2 == 0),
+                                        2, NA))))
+```
+#GRAPH
+
+```{r}
+
+plot(dvisitsedit$doctorco, dvisitsedit$chroniccond, pch = 19, col = "violet")
+
+# Linear fit
+abline(lm(dvisitsedit$doctorco ~ dvisitsedit$chroniccond), col = "green", lwd = 3)
+```
+The scatter plot with linear fit graph of outcome variable "doctorco" and predictor variable "chroniccond" shows a positive and significant relationship between Number of consultations with a doctor or specialist in the past 2 weeks and chronic conditions.
+
+#Q3
+
+```{r}
+hist(dvisitsedit$doctorco)
+#quick histogram of outcome variable "doctorco" will reveal its distribution
+```
+It is evident that a large proportion of the values are zeroes. Hence, fitting a "regular" Poisson count regression model on this dataset.
+
+```{r}
+fullmodel.poisson <- glm(doctorco ~ .- chcond1 - chcond2, family=poisson,
+                   data=dvisitsedit)
+summary(fullmodel.poisson)
+```
+"sex1", "freepoor1","illness","actdays","hospadmi","medicine","prescrib","old_female1" are the significant predictors found in this model with p value being less than 0.05. 
+
+Here, we can see the null devience is 5634.8. and by adding a predictors to it the residual devience came out to be 4235.3. which signifies there is an increase in the chances to be be good fit. 
+
+
+```{r}
+print(paste("Deviance accounted for:",
+            round((1-(fullmodel.poisson$deviance/fullmodel.poisson$null.deviance))*100, 3),
+            "%", sep = ""))
+```
+We can observe that the difference between saturated and proposed models as 24.66%. The lower the devience the better the model. 24.66 being a lower devience we can say that the proposed model amounts to the good amount of variation for the data used. 
+
+#Q4
+
+```{r}
+#install.packages("pscl")
+library(pscl)
+model.zip <- zeroinfl(doctorco ~ . - hospdays - nonpresc - chcond1 - chcond2, data=dvisitsedit)
+summary(model.zip)
+```
+"prescrib","actdays","illness", "freerepa1","levyplus1" are noticed to be significant predictors in this model with p value being less than 0.05. 
+
+"sex1","freepoor1","hospadmi","medicine","old_female1" are no longer significant as they were in the previous model.
+
+#Q5
+```{r}
+better.model <- step(model.zip)
+summary(better.model)
+```
+Among all the models, It is noticeable that the model with Lowest AIC i.e, AIC=6157.6
+"doctorco ~ levyplus + freepoor + freerepa + illness + actdays + 
+    hscore + hospadmi + medicine + prescrib + chroniccond " model can be the better fit.
+ 
+#Q6
+```{r}
+dvisitsedit$young_male <- as.factor(ifelse((dvisitsedit$sex == 0 & 
+                                     dvisitsedit$age <= 0.22),
+                                  1, 0))
+```
+
+```{r}
+dvisitsedit$old_female <- as.factor(ifelse((dvisitsedit$sex == 1 & 
+                                   dvisitsedit$age >= 0.62),
+                                1,0))
+```
+
+
+```{r}
+mod.zip.reduced <- zeroinfl(doctorco ~ old_female, data=dvisitsedit2 )
+summary(mod.zip.reduced)
+```
+
+```{r}
+dvisitsedit2 <- select(dvisits, -agesq, -income,-freerepa,-chcond1,-chcond2,-nondocco,-nonpresc)
+
+```
+
+
+```{r}
+x <- data.frame(old_female="1")
+```
+
+```{r}
+predict(mod.zip.reduced, newdata=x,type="prob")
+```
+We can observe that the highest count probability is 0.7079 or 70.79%. lets calculate the probability from the zero-count part of our model.
+
+```{r}
+predict(mod.zip.reduced, newdata=x,type="zero")[1:8]
+```
+Firstly, NAs show up for all counts greater than 0, since our zero-count part of the model does not model counts greater than zero. The probability of producing zero is 0.4805297 or 48.05%. This is lesser than the value of 70.79% predicted by the Poisson-counts part of the model.
+
+```{r}
+mod.zip.reduced1 <- zeroinfl(doctorco ~ young_male, data=dvisitsedit2 )
+summary(mod.zip.reduced1)
+```
+```{r}
+y <- data.frame(young_male="1")
+```
+
+```{r}
+predict(mod.zip.reduced1, newdata=y,type="prob")
+```
+We can observe that the highest count probability is 0.8831 or 88.31%. lets calculate the probability from the zero-count part of our model.
+
+
+```{r}
+predict(mod.zip.reduced1, newdata=y,type="zero")[1:8]
+```
+
+The probability of producing zero is 0.7960722 or 79.60%. This is lesser than the value of 88.31% predicted by the Poisson-counts part of the model.
+
+
+
+```{r}
+finalmodel.poisson <- glm(dvisitsedit$doctorco ~  dvisitsedit$prescrib + dvisitsedit$actdays + dvisitsedit$illness + dvisitsedit$old_female+ dvisitsedit$young_male , family=poisson,
+                   data=dvisitsedit)
+summary(finalmodel.poisson)
+```
+
+
+```{r}
+ocount <- table(dvisitsedit$doctorco)[1:8]
+pcount <- colSums(predprob(finalmodel.poisson)[,1:8])
+ddf <- data.frame(ocount, round(pcount))
+names(ddf) <- c("count","obs","pred")
+plot(ddf$obs, ddf$pred, type="n", xlab="Observed counts", ylab="Predicted counts")
+text(pcount,ocount, 0:7)
+abline(0,1)
+```
+It is evident that a large proportion of the values are zeroes. Also, Observed counts and predicted counts seem to be fairly close (the numbers being close to the line with zero intercept and slope = 1).

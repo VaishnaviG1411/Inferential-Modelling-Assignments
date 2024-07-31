@@ -1,0 +1,72 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+require("foreign")
+require("ggplot2")
+require("MASS")
+require("Hmisc")
+require("reshape2")
+```
+
+```{r}
+library(survival)
+data(pbc)
+?pbc
+summary(pbc)
+View(pbc)
+```
+
+
+```{r}
+my.pbc <- na.omit(pbc[, -1])
+my.pbc$status <- as.factor(my.pbc$status) #status should be a factor
+my.pbc$ascites <- as.factor(my.pbc$ascites) #ascites should be factor
+my.pbc$stage <- as.factor(my.pbc$stage) #stage is ordinal/rank
+summary(my.pbc)
+
+```
+
+
+```{r}
+cor(my.pbc[, -c()])
+```
+
+
+
+```{r}
+## ignoring trt, time, and status, creating a reduced dataset
+my.reduced.pbc <- my.pbc[, -c(1:3)]
+my.reduced.pbc$sex<- ifelse(my.reduced.pbc$sex=="m", 1, 0)
+summary(my.reduced.pbc)
+view(my.reduced.pbc)
+```
+
+
+
+
+```{r}
+my.reduced.pbc$sex <- as.factor(my.reduced.pbc$sex)
+my.reduced.pbc$spiders <- as.factor(my.reduced.pbc$spiders)
+my.reduced.pbc$edema  <- as.factor(my.reduced.pbc$edema )
+my.reduced.pbc$ascites <- as.factor(my.reduced.pbc$ascites) #ascites should be factor
+my.reduced.pbc$stage <- as.factor(my.reduced.pbc$stage) #stage is ordinal/rank
+my.reduced.pbc$hepato <- as.factor(my.reduced.pbc$hepato)
+```
+
+
+
+```{r}
+my.reduced.pbc$newstage <- as.numeric(ifelse(my.reduced.pbc$stage == 1, 1, 0))  
+my.reduced.pbc$newstage <- as.factor(my.reduced.pbc$newstage)
+summary(my.reduced.pbc)
+
+```
+
+```{r}
+lmmodel.1 <- lm(scale(newstage) ~ age+ sex+ ascites+ hepato+ spiders+ edema+ bili+ chol+ albumin+ copper+ alk.phos+ast+ trig+ platelet+ protime ,data = my.reduced.pbc)
+```
+
+
+

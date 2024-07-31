@@ -1,0 +1,163 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+require("foreign")
+require("ggplot2")
+require("MASS")
+require("Hmisc")
+require("reshape2")
+```
+
+
+```{r}
+library(survival)
+data(pbc)
+?pbc
+summary(pbc)
+View(pbc)
+```
+
+```{r}
+my.pbc <- na.omit(pbc[, -1])
+my.pbc$status <- as.factor(my.pbc$status) #status should be a factor
+my.pbc$ascites <- as.factor(my.pbc$ascites) #ascites should be factor
+my.pbc$stage <- as.factor(my.pbc$stage) #stage is ordinal/rank
+summary(my.pbc)
+
+```
+
+```{r}
+cor(my.pbc[, -c()])
+```
+
+
+```{r}
+## ignoring trt, time, and status, creating a reduced dataset
+my.reduced.pbc <- my.pbc[, -c(1:3)]
+my.reduced.pbc$sex<- ifelse(my.reduced.pbc$sex=="m", 1, 0)
+summary(my.reduced.pbc)
+view(my.reduced.pbc)
+```
+## fit a model to predict "stage" using the other variables as predictors
+```{r}
+ormodel1= polr(stage ~ age  + sex + ascites + hepato + spiders +  edema +  bili + chol + albumin  + copper + alk.phos + ast + trig + platelet + protime , data = my.reduced.pbc, Hess = TRUE)
+summary(ormodel1)
+```
+
+```{r}
+# getting the p-values
+# storing the coefficient table
+ctable <- round(coef(summary(ormodel1)), 4)
+# calculating and storing p-values
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = F) * 2
+# combining coefficient table and p-values table
+(ctable <- cbind(ctable, "p value" = round(p, 4)))
+```
+
+```{r}
+# get confidence intervals
+# log odd coefficients
+or <- round(coef(ormodel1), 4)
+# convert coefficients into odds ratio, combine with CIs
+round(exp(cbind(OR = or)), 4)
+```
+
+```{r}
+# get confidence intervals
+# log odd coefficients
+or <- round(coef(ormodel1), 4)
+#ci
+ci <- confint.default(ormodel1)
+# convert coefficients into odds ratio, combine with CIs
+round(exp(cbind(OR = or,ci)), 4)
+```
+
+
+```{r}
+confint.default(ormodel1)
+```
+
+```{r}
+library(brant)
+brant(ormodel1)
+```
+
+
+
+```{r}
+library(car)
+vif(ormodel1)
+```
+
+
+
+```{r}
+ormodel2= polr(stage ~bili + chol + copper + alk.phos + ast + trig, data = my.reduced.pbc, Hess = TRUE)
+summary(ormodel2)
+```
+
+```{r}
+# correlation plot
+library(GGally)
+xyz.var <- my.reduced.pbc[, c(7,8,10,11,12,13)]
+ggpairs(xyz.var, title = "Correlation Plot between each Variable")
+```
+
+```{r}
+library(brant)
+brant(ormodel2)
+```
+
+
+```{r}
+library(car)
+vif(ormodel2)
+```
+
+
+```{r}
+better.model <- step(ormodel2)
+summary(better.model)
+```
+
+
+```{r}
+vif(better.model)
+```
+
+```{r}
+brant(better.model)
+```
+
+
+
+
+
+
+## identify relevant assumptions, and perform diagnostic tests to determine to what extent the assumptions were met.
+
+```{r}
+## Next, using my.pbc, create a new "event" variable to represent 0 and 1 as alive, and 2 as dead
+## so 0 -> 0, 1 -> 0, 2 -> 1
+my.pbc$newstatus <- as.numeric(ifelse(my.pbc$status == 2, 1, 0)) 
+my.pbc <- my.pbc[, -2] ## remove the original status variable from the dataset
+summary(my.pbc)
+```
+## fit a CoxPH model to predict the hazard function of newstatus
+
+## state and test the assumptions of the CoxPH approach for the model fit above
+## Is is reasonable to use CoxPH model, based on the diagnostic tests' results?
+
+## Fit full-parametric models, where the survival function of status is modeled using
+## exponential and Weibull distributions.
+## Which of these is a better model?
+
+## Comparing the two parametric models' outputs with that from the CoxPH model's
+## output identify which predictors' relationship with the model's outcome
+## remains the same, and which predictors' relationship changes, citing
+## appropriate evidence.
+
+## Taking all of the results together, which variables serve as reliable
+## predictors of survival in the context of the dataset?

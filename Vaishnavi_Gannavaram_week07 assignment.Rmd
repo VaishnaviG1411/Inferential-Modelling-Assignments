@@ -1,0 +1,180 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+INFERENTIAL MODELLING – HDS 5320-02 
+ASSIGNMENT – 07 (week 07)
+Vaishnavi Gannavaram
+Instructor : Dr. Srikanth Mudigonda
+
+
+
+
+```{r}
+library(asaur)
+data(pharmacoSmoking)
+summary(pharmacoSmoking)
+source("unfold.R") ## needed for the unfold function
+library(survival)
+help(pharmacoSmoking)
+```
+
+#Q1 
+```{r}
+mod.coxph.newq1 <- coxph(Surv(ttr, relapse) ~ age + gender + race + employment + yearsSmoking +levelSmoking + priorAttempts + longestNoSmoke,
+                        data=pharmacoSmoking)
+summary(mod.coxph.newq1)
+```
+The model with (age + gender + race + employment +  yearsSmoking + levelSmoking + priorAttempts + longestNoSmoke) as predictors: 
+
+#Null Hypothesis: (for the model of a whole)
+H0 : Model being a poor fit i.e, coefficient values of every single predictor is zero with no significance. 
+HA : There is a statistical significance for predictors, model is a good fit.
+
+Out of three fit statistics, two of their p values exceeded 0.05, which means the majority of the fit is not significant. Hence the model as a whole is a poor fit.
+
+So, the Null hypothesis cannot be rejected. 
+
+#For each of the predictors level : 
+* The age is negative, so the probability of relapse is smaller and according to this model, age turns out to be significant. 
+
+* Males when compared to females have smaller tendency to relapse, but this effect is not significant at all in this model.Therefore, there is not statistical difference between males and females in terms of having a relapse according to this model. 
+
+* "Other" and "parttime" category of employment are significant with p value being less than or nearly equal to 0.05. The confidence intervals of both overlap, so there is no difference between them in terms of having relapse. 
+
+```{r}
+plot(survfit(mod.coxph.newq1), ylim = c(0.2, 1.0), xlab="Weeks", ylab="Proportion not relapsed",
+     main="Main survival function's plot" )
+```
+The graph has steep fall, higher probability of having a relapse. survival reduced drastically and close point nearer to 150 
+i.e smaller survival probability. 
+
+
+
+```{r}
+attach(pharmacoSmoking) ## so that we don't have to prefix column-names with the dataframe object's name
+
+contrasts(grp)
+contrasts(gender)
+contrasts(race)
+contrasts(employment)
+contrasts(levelSmoking)
+```
+
+
+#Q2
+```{r}
+mod.coxph.newq2 <- coxph(Surv(ttr, relapse) ~ age + gender + race + employment + yearsSmoking +levelSmoking + priorAttempts + longestNoSmoke + grp ,
+                        data=pharmacoSmoking)
+summary(mod.coxph.newq2)
+```
+The model with (age + gender + race + employment +  yearsSmoking + levelSmoking + priorAttempts + longestNoSmoke + grp) as predictors: 
+(added grp with the model q1)
+
+#Null Hypothesis: (for the model of a whole)
+H0 : Model being a poor fit i.e, coefficient values of every single predictor is zero with no significance. 
+HA : There is a statistical significance for predictors, model is a good fit.
+
+The three fit statistical values in this model have p value less than 0.05 , so the model seems to be a good fit.  
+The predictors seems to have a significance.
+
+Therefore, the Null hypothesis for the model of a whole can be rejected. 
+
+#Hence, we can observe that adding "grp" to the model 1 improved the overall model fit. 
+
+#For each of the predictors level : 
+* (Similar to the model 1) : The age is negative, so the probability of relapse is smaller and according to this model, age turns out to be significant. 
+
+* (Similar to the model 1): Males when compared to females have smaller tendency to relapse, but this effect is not significant at all in this model.Therefore, there is no statistical difference between males and females in terms of having a relapse according to this model. 
+
+* (Similar to the model 1): "Other" and "parttime" category of employment are significant with p value being less than O.05. 
+
+** Whereas, here in this model, we can observe that "employmentother" is more significant when compared to "employmentpt". 
+
+** "grppatchOnly" - subgroup patchOnly from "grp" seems to have significance with p value being less than 0.05.
+
+
+```{r}
+plot(survfit(mod.coxph.newq2), ylim = c(0.2, 1.0), xlab="Weeks", ylab="Proportion not relapsed",
+     main="Main survival function's plot" )
+```
+The graph is less steeper when compared to the survival plot of model 1. i.e, higher survival probability when compared to the model 1. 
+
+
+#Q3
+```{r}
+mod.coxph.newq3 <- coxph(Surv(ttr, relapse) ~ age + gender + race + employment + yearsSmoking +levelSmoking + priorAttempts + longestNoSmoke + grp + grp:gender ,
+                        data=pharmacoSmoking)
+summary(mod.coxph.newq3)
+```
+The model with (age + gender + race + employment +  yearsSmoking + levelSmoking + priorAttempts + longestNoSmoke + grp + "grp:gender") as predictors: 
+(added "grp:gender" with the model q2)
+
+#Null Hypothesis: (for the model of a whole)
+H0 : The Model being a poor fit i.e, coefficient values of every single predictor is zero with no significance. 
+HA : There is a statistical significance for predictors, model is a good fit.
+
+The three fit statistical values in this model have p value less than 0.05 , so the model seems to be a good fit.  
+The predictors seem to have a significance.
+
+Therefore, the Null hypothesis for the model of a whole can be rejected. 
+
+
+#For each of the predictors level : 
+* (Similar to the model 2) : The age is negative, so the probability of relapse is smaller and according to this model, age turns out to be significant. 
+
+* (Similar to the model 2): "Other" and "parttime" category of employment are significant with p value being less than O.05. 
+
+* (Similar to the model 2): we can observe that "employmentother" is more significant when compared to "employmentpt". 
+
+* (Similar to the model 2): "grppatchOnly" - subgroup patchOnly from "grp" seems to have significance with p value being less than 0.05.
+
+** "genderMale" is not negative in this model anymore.
+
+#** "genderMale:grppatchOnly" relationship has significance as the p value is less than 0.05. Hence, the effect of grp on the hazard of relapse vary across both men and women.     
+
+
+
+#Q4
+```{r}
+anova(mod.coxph.newq1,mod.coxph.newq2,mod.coxph.newq3)
+```
+According to anova test, the model 1 seems to be insignificant and model 2 is more significant compared to model 3. 
+
+
+#Therefore, MODEL 2 is the best. 
+
+#Q5
+```{r}
+#proportional hazard assumption
+cox.zph(mod.coxph.newq2)
+```
+
+In case of gender, its tending towards not being met as p value is closer to 0.05, but the rest of the values have non significant p values.
+
+#Overall, Proportional hazards Assumption is met.
+
+
+```{r}
+par(mfrow=c(2,2))
+plot(cox.zph(mod.coxph.newq2))
+```
+X axis represents time and y axis represents particular predictor variable. 
+It depicts how the residuals i.e, the errors made by the model vary across the time for particular variable. 
+
+#Mostly, residuals are close to zero and the line is flat implying that 
+#there is no variation in the effect of varible across the time.
+With the little exception of "yearsSmoking" were the line is slightly curved. 
+
+```{r}
+#residuals plot with df beta's
+dfbeta <- residuals(mod.coxph.newq2, type = "dfbeta")
+par(mfrow=c(3, 3))
+for (j in 1:6) {
+  plot(dfbeta[, j], ylab=names(coef(mod.coxph.newq2))[j])
+  abline(h=0, lty=2)
+}
+```
+#Influential observations: Special type of residuals called df betas.
+It depicts the effect of inclusion/exclusion of variable on the model fit. i.e, change in the estimation of coefficient.
+compared df beta value with actual beta value. There are only smaller differences between them. 

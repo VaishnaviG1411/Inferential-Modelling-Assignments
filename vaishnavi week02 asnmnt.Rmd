@@ -1,0 +1,263 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+INFERENTIAL MODELLING – HDS 5320-02 
+ASSIGNMENT – 02
+Vaishnavi Gannavaram
+Instructor : Dr. Srikanth Mudigonda
+
+
+```{r}
+#installing packages
+install.packages("faraway")
+install.packages("GGally")
+install.packages("car")
+library("car")
+#installing packages
+install.packages("glmnet")
+install.packages("mice")
+install.packages("VIM")
+install.packages("lattice")
+install.packages("ggplot2")
+install.packages("dplyr")
+```
+
+
+```{r}
+#reading data, checking summary, and using ggpairs
+require("faraway")
+require("GGally")
+data("diabetes")
+variable.names(diabetes)
+help(diabetes)
+
+diabetes <- na.omit(diabetes)[, -1] #exclude the id column
+summary(diabetes)
+View(diabetes)
+```
+```{r}
+
+```
+
+
+```{r}
+ggpairs(diabetes)
+```
+
+
+```{r}
+#regression models 
+lmmodel.1 <- lm(`glyhb` ~ `gender` ,data = diabetes)
+summary(lmmodel.1)
+```
+```{r}
+#regression models 
+lmmodel.gender <- lm(glyhb ~gender,data = diabetes)
+summary(lmmodel.gender)
+```
+```{r}
+#regression models 
+lmmodel.genderht <- lm(glyhb ~gender+weight/height,data = diabetes)
+summary(lmmodel.genderht)
+```
+
+
+```{r}
+#regression models 
+lmmodel.2 <- lm(`glyhb` ~ `gender`+ `location`,data = diabetes)
+summary(lmmodel.2)
+```
+
+
+```{r}
+#regression models 
+lmmodel.3 <- lm(glyhb ~ chol+stab.glu+hdl+ratio+age+weight/height,data = diabetes)
+summary(lmmodel.3)
+```
+
+```{r}
+#regression models 
+lmmodel.4 <- lm(glyhb ~ chol+stab.glu+hdl+ratio+age+weight/height+gender,data = diabetes)
+summary(lmmodel.4)
+```
+
+```{r}
+lmmodel.5 <- lm(glyhb ~ chol + stab.glu + hdl + ratio + age + weight/height + waist/hip, data = diabetes)
+summary(lmmodel.5)
+```
+
+```{r}
+anova(lmmodel.1 ,lmmodel.2 ,lmmodel.3 ,lmmodel.4 ,lmmodel.5)
+```
+
+
+
+```{r}
+#7Q
+#checking multi collinearity
+vif(lmmodel.3)
+```
+
+```{r}
+#independence of errors
+durbinWatsonTest(lmmodel.3)
+```
+
+```{r}
+#distribution of residuals
+spreadLevelPlot(lmmodel.3)
+```
+
+```{r}
+# residuals normal distribution
+shapiro.test(lmmodel.3$residuals)
+```
+
+```{r}
+#8th tranformations: log/square model 3 predictors
+```
+
+```{r}
+scatter.smooth(diabetes$chol, diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(log(diabetes$chol), diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(sqrt(diabetes$chol), diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(diabetes$stab.glu, diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(log(diabetes$stab.glu), diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(sqrt(diabetes$stab.glu), diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(diabetes$hdl, diabetes$glyhb)
+```
+```{r}
+scatter.smooth(sqrt(diabetes$hdl), diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(diabetes$ratio, diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(log(diabetes$ratio), diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(sqrt(diabetes$ratio), diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(diabetes$height, diabetes$glyhb)
+```
+```{r}
+scatter.smooth(sqrt(diabetes$height), diabetes$glyhb)
+```
+
+```{r}
+scatter.smooth(diabetes$weight, diabetes$glyhb)
+```
+```{r}
+scatter.smooth(sqrt(diabetes$weight), diabetes$glyhb)
+```
+
+
+
+```{r}
+#weighted linear regression transformation
+q1 <- summary(diabetes$glyhb)[4.3]
+q3 <- summary(diabetes$glyhb)[6.4]
+
+diabetes$glyhbcateg = as.factor(ifelse(diabetes$glyhb < q1,
+                                 "low",
+                                 ifelse(diabetes$glyhb >= q1 & diabetes$glyhb<q3,
+                                        "med",
+                                        "high")))
+summary(diabetes$glyhbcateg)
+```
+
+```{r}
+lm.low <- lm(glyhb ~  chol + stab.glu + hdl + ratio + weight/height + age, data = diabetes, subset = (diabetes$glyhbcateg == "low"))
+summary(lm.low)
+```
+
+```{r}
+lm.med <- lm(glyhb ~  chol + stab.glu + hdl + ratio + weight/height + age, data = diabetes, subset = (diabetes$glyhbcateg == "med"))
+summary(lm.med)
+```
+
+
+```{r}
+#Computing the group variance 
+variance.glyhb <- aggregate(diabetes$glyhb,by=list(diabetes$glyhbcateg), FUN=var) 
+print(variance.glyhb)
+```
+
+```{r}
+wts <- numeric(nrow(diabetes)) ## create an empty vector of weights, whose length == no. of rows in Auto
+wts
+vct.categs <- c("low", "med", "high")
+for(oid in 1:length(vct.categs)){
+  wts[diabetes$glyhbcateg ==vct.categs[oid]] <- variance.glyhb [oid, 2] ## assign
+}
+```
+
+```{r}
+lm.new <- lm(glyhb ~  chol + stab.glu + hdl + ratio + weight/height + age, data = diabetes, weights=1/wts) ## weighted least squares
+summary(lm.new)
+```
+
+```{r}
+#
+scatter.smooth(lm.new$fitted, lm.new$residuals, xlab="Fitted values",
+     ylab="Residuals", main="Fitted values vs. Residuals - Weighted least squares model")
+```
+
+
+```{r}
+#transformed outcome variable
+lm.a <- lm(log(glyhb) ~  chol + stab.glu + hdl + ratio + weight/height + age, data = diabetes, weights=1/wts) ## weighted least squares
+summary(lm.a)
+```
+```{r}
+scatter.smooth(lm.a$fitted, lm.a$residuals, xlab="Fitted values",
+     ylab="Residuals", main="Fitted values vs. Residuals - Weighted least squares model")
+```
+```{r}
+shapiro.test(lm.a$residuals)
+```
+
+```{r}
+lm.b <- lm(glyhb ~ chol+stab.glu+hdl+ratio+age+weight/height,data = diabetes)
+summary(lm.b)
+```
+
+
+```{r}
+shapiro.test(lm.b$residuals)
+```
+
+```{r}
+lm.c <- lm(log(glyhb) ~ chol+stab.glu+hdl+ratio+age+weight/height,data = diabetes)
+summary(lm.c)
+```
+
+
+```{r}
+shapiro.test(lm.c$residuals)
+```

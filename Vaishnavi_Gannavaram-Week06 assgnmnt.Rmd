@@ -1,0 +1,137 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+INFERENTIAL MODELLING – HDS 5320-02 
+ASSIGNMENT – 06 (WEEK-06)
+Vaishnavi Gannavaram
+Instructor : Dr. Srikanth Mudigonda
+---
+
+```{r}
+install.packages("MatchIt")
+install.packages("optmatch")
+```
+
+```{r}
+#Q1 Loading the dataset from package
+require("faraway")
+data("pima")
+```
+
+```{r}
+#checking the summary
+summary(pima)
+```
+
+```{r}
+??pima
+```
+
+```{r}
+View(pima)
+```
+
+
+```{r}
+#Q2 . building full model using all predictors and outcome variable test to check relationship and then formulating the question. 
+lmod.full <- glm(pima$test ~ pregnant  +glucose + diastolic+ triceps+ insulin + bmi+ diabetes+ age , family = binomial, data = pima)
+summary(lmod.full)
+```
+
+#Based on each predictor's coefficients p values, predictors "pregnant","glucose","diastolic","bmi","diabetes" have significant relationship with the outcome variable.
+
+Pima test.lmod.full = -8.40 + 0.12*pregnant + 0.03*glucose - 0.01*diastolic + 0.09*bmi +0.94*diabetes
+---------------------------------------------------------
+############ Formulating research question ###############
+
+Does the presence of "test" variable affect the glucose levels, Considering the "diabetes", "BMI", "pregnant" as predictors.
+
+Inorder to find out that , we are using "test" variable as treatment/controlled variable and glucose level as outcome variable with predictors bmi, diabetes, and pregnant. 
+----------------------------------------------------------
+```{r}
+#Q3
+#nearest method
+library(MatchIt)
+m.out1 <- matchit(test ~ bmi+diabetes+pregnant, 
+                 data = pima,
+                 method="nearest")
+summary(m.out1)
+plot(m.out1,type="jitter")
+```
+#From the above table, we can infer that
+#Firstly, there are 268 observations which are controlled and treated among 500 observations. Hence, achieved balance.
+
+#Secondly, there are 232 observations that did not have analogue on treated group. i.e, unmatched controlled observations. 
+
+#Also, as there are fewer treated observations than controlled observations, the unmatched treated observations are 0.
+
+
+#From the jitter plot, we can observe that
+#The dispersion as the whole across the range of values is nearly identical in terms of how they fall in each range of of propensity scores.
+
+```{r}
+#optimal method
+library(optmatch)
+m.out.2 <- matchit(test ~ bmi+diabetes+pregnant, 
+                 data = pima,
+                 method="optimal")
+summary(m.out.2)
+plot(m.out.2, type="hist")
+```
+#Results from the optimal matching method were identical with the results from nearest matching method.
+1. There are 268 observations which are controlled and treated among 500 observations. Hence, achieved balance.
+2. There are 232 observations that did not have analogue on treated group. i.e, unmatched controlled observations. 
+3. As there are fewer treated observations than controlled observations, the unmatched treated observations are 0.
+
+#From the histogram plot, we can observe that the observations are evenly distributed.
+
+Q4.
+```{r}
+#4a
+#including treatment variable "test"
+#install.packages("remotes")
+#install.packages(
+#"Zelig",repos = "http://r.iq.harvard.edu",type = "source")
+library(remotes)
+library(Zelig)
+z.out <- zelig(glucose ~ bmi+diabetes+pregnant+test,
+                 data = match.data(m.out1),
+                 model = "ls")
+
+x.out.0 <- setx(z.out, test=0)
+x.out.1 <- setx(z.out, test=1)
+s.out <- sim(z.out, x = x.out.0, x1 = x.out.1)
+summary(s.out)
+```
+#comparing differences between controlled and treated groups with x being when treatment variable is 0 and x1 being treatment variable 1 including treatment variable "test".
+
+#5
+Two matched groups dont differ significantly in terms of the means of the outcomes between the treatment and control groups within a given matched dataset. 
+95 % of confidence intervals overlap, we can conclude that they are not significantly different. 
+Hence, presence of signs does not affect the glucose levels.
+
+```{r}
+#4b
+#excluding treatment variable "test"
+#install.packages("remotes")
+#install.packages(
+#"Zelig",repos = "http://r.iq.harvard.edu",type = "source")
+library(remotes)
+library(Zelig)
+z.out <- zelig(glucose ~ bmi+diabetes+pregnant,
+                 data = match.data(m.out1),
+                 model = "ls")
+
+x.out.0 <- setx(z.out)
+x.out.1 <- setx(z.out)
+s.out <- sim(z.out, x = x.out.0, x1 = x.out.1)
+summary(s.out)
+```
+#5
+Two matched groups dont differ significantly in terms of the means of the outcomes between the treatment and control groups within a given matched dataset. 
+95 % of confidence intervals overlap, we can conclude that they are not significantly different. 
+
+
+
+
